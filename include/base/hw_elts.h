@@ -40,7 +40,7 @@ typedef struct full_adder {
  * @param src1 the number of the first source register to read from.
  * @param src2 the number of the second source register to read from.
  * @param val_a a pointer to the space where the value read from src1 should go.
- * @param val_b a pointer to the spave where the value read from src2 should go.
+ * @param val_b a pointer to the space where the value read from src2 should go.
  */
 extern comb_logic_t regfile_read(uint8_t src1, uint8_t src2, uint64_t *val_a,
                                  uint64_t *val_b);
