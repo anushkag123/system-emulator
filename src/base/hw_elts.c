@@ -41,7 +41,7 @@ comb_logic_t init_rca(uint64_t val_a, uint64_t val_b, bool c_in) {
         rca[i].c_in = i == 0 ? c_in : rca[i - 1].c_out;
         rca[i].bit_a = val_a & 1;
         rca[i].bit_b = val_b & 1;
-        rca[i].c_out = (rca[i].bit_a & rca[i].bit_b) | (c_in & (rca[i].bit_a ^ rca[i].bit_b));
+        rca[i].c_out = (rca[i].bit_a & rca[i].bit_b) | (rca[i].c_in & (rca[i].bit_a ^ rca[i].bit_b));
         val_a = val_a >> 1;
         val_b = val_b >> 1;
     }
@@ -56,8 +56,8 @@ comb_logic_t ripple_carry_add(uint64_t *sum) {
     /* your implementation */
     *sum = 0;
     for (int i = 63; i >= 0; i--){
-        *sum += rca[i].bit_a ^ rca[i].bit_b ^ rca[i].c_in; 
         *sum = *sum << 1;
+        *sum += rca[i].bit_a ^ rca[i].bit_b ^ rca[i].c_in; 
     }
     return;
 }
@@ -85,11 +85,6 @@ comb_logic_t regfile_read(uint8_t src1, uint8_t src2, uint64_t *val_a,
     } else {
         *val_b = guest.proc->GPR[src2];
     }
-    
-    /*bool err = false;
-    bool *error = &err;
-    dmem((uint64_t) &(guest.proc->GPR[src1]), 0, true, false, val_a, error);
-    dmem((uint64_t) &(guest.proc->GPR[src2]), 0, true, false, val_b, error);*/
     return;
 }
 
@@ -105,12 +100,6 @@ comb_logic_t regfile_write(uint8_t dst, uint64_t val_w, bool w_enable) {
 
     guest.proc->GPR[dst] = val_w;
     return;
-
-    /* your implementation */
-    /*bool err = false;
-    bool *error = &err;
-    if (dst == SP_NUM || dst == XZR_NUM) w_enable = false;
-    dmem((uint64_t) &(guest.proc->GPR[dst]), val_w, false, w_enable, NULL, error);*/
 }
 
 /*
@@ -165,7 +154,7 @@ static bool cond_holds(cond_t cond, uint8_t flags) {
             if(z == 0 && n == v) return true;
             return false;
         case C_LE:
-            if(!z == 0 && n == v) return true;
+            if(!(z == 0 && n == v)) return true;
             return false;
         case C_AL:
         case C_NV:
@@ -183,18 +172,23 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
                  uint8_t nzcv, alu_op_t ALUop, bool set_flags, cond_t cond,
                  uint64_t *val_e, bool *cond_val, uint8_t *nzcv_dst) {
     /* your implementation */
+    uint8_t n = 0;
+    uint8_t z = 0;
+    uint8_t c = 0;
+    uint8_t v = 0;
     switch (ALUop) {
         case PLUS_OP:   // vala + valb
             init_rca(alu_vala, alu_valb, false);
-            ripple_carry_add(val_e);
-            
-            //if (*val_e == 0)
-
+            ripple_carry_add(val_e);  
+            c = rca[63].c_out;
+            v = rca[63].c_in ^ rca[63].c_out;
             break;
 
         case MINUS_OP:  // vala - valb
-            init_rca(alu_vala, alu_valb, true);
+            init_rca(alu_vala, ~alu_valb, true);
             ripple_carry_add(val_e);
+            c = rca[63].c_out;
+            v = rca[63].c_in ^ rca[63].c_out;
             break;
 
         case INV_OP:    
@@ -238,10 +232,17 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
             break;
         
         default:
-            return;
+            break;
     }
-    
-    
+
+    if (set_flags) {
+        if (*val_e == 0) z = 1;
+        if (*val_e >> 63 == 1) n = 1;
+        *nzcv_dst = PACK_CC(n, z, c, v);
+    } else {
+        *nzcv_dst = nzcv;
+    }
+
     *cond_val = cond_holds(cond, nzcv);
     return;
 }
