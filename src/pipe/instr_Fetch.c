@@ -77,15 +77,15 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
     //uncond branch
     int64_t offset;
     if(op == OP_B || op == OP_BL) {
-        offset = bitfield_u32(insnbits, 0, 26) << 2;
-        *predicted_PC = current_PC + offset;
+        offset = bitfield_u32(insnbits, 0, 26);
+        *predicted_PC = current_PC + (offset << 2);
         return;
     }
     
     // cond branch
     if (op == OP_B_COND){
-        offset = bitfield_u32(insnbits, 5, 19) << 2;
-        *predicted_PC = current_PC + offset;
+        offset = bitfield_u32(insnbits, 5, 19);
+        *predicted_PC = current_PC + (offset << 2);
         return;
     }
     
@@ -118,7 +118,7 @@ static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
     if (*op == OP_UBFMV){
         if (num == 0b001001) {
             *op = OP_LSR_RR;
-        } else if(num == 0b001001) {
+        } else if(num == 0b001000) {
             *op = OP_LSL_RR;
         } else {
             assert(0);
@@ -200,7 +200,7 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         }
         out->print_op = out->op;
         fix_instr_aliases(out->insnbits, &out->print_op);
-        predict_PC(current_PC, out->insnbits, out->op, &in->pred_PC, &out->multipurpose_val.seq_succ_PC);
+        predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
     }
 
     if (imem_err || out->op == OP_ERROR) {
