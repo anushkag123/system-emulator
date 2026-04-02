@@ -37,6 +37,20 @@ select_PC(uint64_t pred_PC,                  // The predicted PC
         return;
     }
     // Modify starting here.
+    // fix mispredicted branch
+    if (M_opcode == OP_B_COND && !M_cond_val) {
+        *current_PC = seq_succ;
+        return;
+    }
+
+    // ret
+    if (D_opcode == OP_RET) {
+        *current_PC = val_a;
+        return;
+    }
+
+    // base case
+    *current_PC = pred_PC;
     return;
 }
 
@@ -58,6 +72,25 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
         return; // We use this to generate a halt instruction.
     }
     // Modify starting here.
+    *seq_succ = current_PC + 4;
+    
+    //uncond branch
+    int64_t offset;
+    if(op == OP_B || op == OP_BL) {
+        offset = bitfield_u32(insnbits, 0, 26) << 2;
+        *predicted_PC = current_PC + offset;
+        return;
+    }
+    
+    // cond branch
+    if (op == OP_B_COND){
+        offset = bitfield_u32(insnbits, 5, 19) << 2;
+        *predicted_PC = current_PC + offset;
+        return;
+    }
+    
+    // base case
+    *predicted_PC = current_PC + 4;
     return;
 }
 
@@ -70,6 +103,54 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
  */
 static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
     // Student TODO
+    int num = bitfield_u32(insnbits, 10, 6);
+    // ubfm (lsl/lsr ri)
+    if (*op == OP_UBFM){
+        if(num == 0b111111) {
+            *op = OP_LSR_RI;
+        } else {
+            *op = OP_LSL_RI;
+        }
+        return;
+    }
+
+    // ubfmv (lsl/lsr rr)
+    if (*op == OP_UBFMV){
+        if (num == 0b001001) {
+            *op = OP_LSR_RR;
+        } else if(num == 0b001001) {
+            *op = OP_LSL_RR;
+        } else {
+            assert(0);
+        }
+        return;
+    }
+
+    uint8_t dest = bitfield_u32(insnbits, 0, 5);
+    // subs (cmp)
+    if (*op == OP_SUBS_RR){
+        if (dest == 0x1f){
+            *op = OP_CMP_RR;
+        }
+        return;
+    }
+
+    // ands (tst)
+    if(*op == OP_ANDS_RR) {
+        if(dest == 0x1f) {
+            *op = OP_TST_RR;
+        }
+        return;
+    }
+
+    // adds (cmn)
+    if(*op == OP_ADDS_RR) {
+        if(dest == 0x1f) {
+            *op = OP_CMN_RR;
+        }
+        return;
+    }
+
     return;
 }
 
@@ -91,7 +172,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
     uint64_t current_PC = 0;
 
     // Student TODO: Comment this line back in and fill in parameters
-    // select_PC();
+    select_PC(in->pred_PC, X_out->op, X_out->val_a, 
+                X_out->multipurpose_val.seq_succ_PC, 
+                M_out->op, M_out->cond_holds, 
+                M_out->multipurpose_val.seq_succ_PC, &current_PC);
     
     /*
      * Students: This case is for generating HLT instructions
@@ -105,7 +189,18 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         imem_err = false;
     } else {
         // Student TODO
+        imem(current_PC, &out->insnbits, &imem_err);
+        extern opcode_t itable[];
 
+        out->op = itable[bitfield_u32(out->insnbits, 21, 11)]; 
+        if (out->op == OP_ERROR){
+            out->format = FORMAT_ERROR;
+        } else {
+            out->format = ftable[out->op];
+        }
+        out->print_op = out->op;
+        fix_instr_aliases(out->insnbits, &out->print_op);
+        predict_PC(current_PC, out->insnbits, out->op, &in->pred_PC, &out->multipurpose_val.seq_succ_PC);
     }
 
     if (imem_err || out->op == OP_ERROR) {
