@@ -31,6 +31,33 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
                                           m_ctl_sigs_t *M_sigs,
                                           w_ctl_sigs_t *W_sigs) {
     // Student TODO
+    D_sigs->src2_sel = (op == OP_STUR);
+    
+    // check if using multipurpose val for adrp instead of vala
+    X_sigs->vala_sel = (op == OP_ADRP);
+    // check if using reg for valb (or for ret (b3))
+    X_sigs->valb_sel = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_CMP_RR || 
+                        op == OP_CMN_RR || op == OP_ORR_RR || op == OP_EOR_RR || 
+                        op == OP_ANDS_RR || op == OP_TST_RR || op == OP_LSL_RR || 
+                        op == OP_LSR_RR || op == OP_RET); 
+    // check if setting nzcv flags                   
+    X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR);
+
+    // mem signals
+    M_sigs->dmem_read = (op == OP_LDUR);
+    M_sigs->dmem_write = (op == OP_STUR);
+
+    // check if writing to x30
+    W_sigs->dst_sel = (op == OP_BL);
+    // check if write val comes from mem
+    W_sigs->wval_sel = (op == OP_LDUR);
+    // enable write for any instr that modifies a reg
+    W_sigs->w_enable = (op == OP_LDUR || op == OP_MOVZ || op == OP_MOVK || 
+                        op == OP_ADRP || op == OP_ADD_RI || op == OP_ADDS_RR || 
+                        op == OP_SUB_RI || op == OP_SUBS_RR || op == OP_ORR_RR || 
+                        op == OP_EOR_RR || op == OP_ANDS_RR || op == OP_LSL_RI || 
+                        op == OP_LSR_RI || op == OP_LSL_RR || op == OP_LSR_RR || 
+                        op == OP_ASR || op == OP_BL);
     return;
 }
 
@@ -43,6 +70,33 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
 static comb_logic_t extract_immval(uint32_t insnbits, opcode_t op,
                                    int64_t *imm) {
     // Student TODO
+    switch (op)
+    {
+    // M
+    case OP_LDUR:
+    case OP_STUR:
+        *imm = bitfield_s64(insnbits, 12, 9);
+        break;
+    // I1
+    case OP_MOVK:
+    case OP_MOVZ:
+        *imm = bitfield_u32(insnbits, 5, 16);
+        break;
+    // RI (arithmetic)
+    case OP_ADD_RI:
+    case OP_SUB_RI:
+        *imm = bitfield_u32(insnbits, 10, 12);
+        break;
+    // RI (logical)
+    case OP_LSL_RI:
+    case OP_LSR_RI:
+    case OP_ASR:
+        *imm = bitfield_u32(insnbits, 16, 6);
+        break;
+    default:
+        *imm = 0;
+        break;
+    }
     return;
 }
 
@@ -54,6 +108,59 @@ static comb_logic_t extract_immval(uint32_t insnbits, opcode_t op,
  */
 static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
     // Student TODO
+    switch(op){
+        case OP_ADD_RI:
+        case OP_ADDS_RR:
+        case OP_CMN_RR:
+        // address calc
+        case OP_LDUR:
+        case OP_STUR:
+            *ALU_op = PLUS_OP;
+            break;
+        
+        case OP_SUB_RI:
+        case OP_SUBS_RR:
+        case OP_CMP_RR:
+            *ALU_op = MINUS_OP;
+            break;
+        
+        case OP_MVN:
+            *ALU_op = INV_OP;
+            break;
+        
+        case OP_MOVZ:
+            *ALU_op = MOV_OP;
+            break;
+        case OP_MOVK:
+            *ALU_op = MOVK_OP;
+            break;
+        
+        case OP_ANDS_RR:
+        case OP_TST_RR:
+            *ALU_op = AND_OP;
+            break;
+        case OP_ORR_RR:
+            *ALU_op = OR_OP;
+            break;
+        case OP_EOR_RR:
+            *ALU_op = EOR_OP;
+            break;
+        
+        case OP_LSL_RI:
+        case OP_LSL_RR:
+            *ALU_op = LSL_OP;
+            break;
+        case OP_LSR_RI:
+        case OP_LSR_RR:
+            *ALU_op = LSR_OP;
+            break;
+        case OP_ASR:
+            *ALU_op = ASR_OP;
+            break;
+        
+        default:
+            *ALU_op = PASS_A_OP;
+    }
     return;
 }
 
@@ -65,11 +172,13 @@ static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
  */
 comb_logic_t copy_m_ctl_sigs(m_ctl_sigs_t *dest, m_ctl_sigs_t *src) {
     // Student TODO
+    *dest = *src;
     return;
 }
 
 comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *dest, w_ctl_sigs_t *src) {
     // Student TODO
+    *dest = *src;
     return;
 }
 
@@ -80,6 +189,31 @@ comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *dest, w_ctl_sigs_t *src) {
  */
 comb_logic_t fix_regs(opcode_t op, uint8_t *src1, uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    switch(op){
+        case OP_CMN_RR:
+        case OP_CMP_RR: 
+        case OP_TST_RR:
+            *dst = XZR_NUM;
+            break;
+        
+        case OP_MVN:
+            *src2 = XZR_NUM;
+            break;
+        
+        case OP_LDUR:
+        case OP_STUR:
+        case OP_ADD_RI:
+        case OP_SUB_RI:
+            if (*src1 == 31) *src1 = SP_NUM;
+            if (*dst == 31) *dst = SP_NUM;
+            break;
+        
+        default:
+            if (*src1 == 31) *src1 = XZR_NUM;
+            if (*src2 == 31) *src2 = XZR_NUM;
+            if (*dst == 31) *dst = XZR_NUM;
+            break;
+    }
     return;
 }
 
@@ -109,48 +243,65 @@ comb_logic_t format_other(uint32_t insnbits, opcode_t op, uint8_t *src1,
 comb_logic_t format_m(uint32_t insnbits, opcode_t op, uint8_t *src1,
                       uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    if (op == OP_STUR) {
+        *src2 = bitfield_u32(insnbits, 0, 5); // rt = data to store
+    } else {
+        *dst = bitfield_u32(insnbits, 0, 5); // rt = dest for load
+    }
     return;
 }
 
 comb_logic_t format_i1(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *dst = bitfield_u32(insnbits, 0, 5);
     return;
 }
 
 comb_logic_t format_i2(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *dst = bitfield_u32(insnbits, 0, 5);
     return;
 }
 
 comb_logic_t format_rr(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *src1 = bitfield_u32(insnbits, 5, 5);
+    *src2 = bitfield_u32(insnbits, 16, 5);
+    *dst = bitfield_u32(insnbits, 0, 5);
     return;
 }
 
 comb_logic_t format_ri(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *src1 = bitfield_u32(insnbits, 5, 5);
+    *dst = bitfield_u32(insnbits, 0, 5);
     return;
 }
 
+// uncond b
 comb_logic_t format_b1(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    if (op == OP_BL) *dst = 30; // save ret address to x30
     return;
 }
 
+// cond b
 comb_logic_t format_b2(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
     return;
 }
 
+// ret
 comb_logic_t format_b3(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *src1 = bitfield_u32(insnbits, 5, 5); // rn = return address
     return;
 }
 
@@ -186,5 +337,34 @@ comb_logic_t format_ec(uint32_t insnbits, opcode_t op, uint8_t *src1,
  */
 comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     // Student TODO
+    // basic pass
+    out->op = in->op;
+    out->print_op = in->print_op;
+    out->status = in->status;
+    // union pass
+    out->multipurpose_val.seq_succ_PC = in->multipurpose_val.seq_succ_PC;
+    
+    // control signals
+    d_ctl_sigs_t D_sigs;
+    generate_DXMW_control(out->op, &D_sigs, &out->X_sigs, &out->M_sigs, &out->W_sigs);
+    
+    // alu op
+    decide_alu_op(out->op, &out->ALU_op);
+
+    // extract registers
+    uint8_t src1 = XZR_NUM;
+    uint8_t src2 = XZR_NUM;
+
+    extract_regs(in->insnbits, out->op, in->format, &src1, &src2, &out->dst);
+    fix_regs(out->op, &src1, &src2, &out->dst);
+    
+    // if stur, read from rt instead of rd
+    regfile_read(src1, D_sigs.src2_sel ? out->dst : src2, &out->val_a, &out->val_b);
+    
+    // immedidate val extract
+    extract_immval(in->insnbits, out->op, &out->val_imm);
+    
+    out->val_hw = bitfield_u32(in->insnbits, 21, 2) * 16; // shift val
+    out->cond = bitfield_u32(in->insnbits, 0, 4); //cond for b cond
     return;
 }
