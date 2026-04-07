@@ -77,14 +77,14 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
     //uncond branch
     int64_t offset;
     if(op == OP_B || op == OP_BL) {
-        offset = bitfield_u32(insnbits, 0, 26);
+        offset = bitfield_s64(insnbits, 0, 26);
         *predicted_PC = current_PC + (offset << 2);
         return;
     }
     
     // cond branch
     if (op == OP_B_COND){
-        offset = bitfield_u32(insnbits, 5, 19);
+        offset = bitfield_s64(insnbits, 5, 19);
         *predicted_PC = current_PC + (offset << 2);
         return;
     }
@@ -168,6 +168,7 @@ static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
  * select_pc, predict_pc, and imem.
  */
 comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
+    
     bool imem_err = 0;
     uint64_t current_PC = 0;
 

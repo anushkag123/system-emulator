@@ -172,13 +172,16 @@ static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
  */
 comb_logic_t copy_m_ctl_sigs(m_ctl_sigs_t *dest, m_ctl_sigs_t *src) {
     // Student TODO
-    *dest = *src;
+    dest->dmem_read = src->dmem_read;
+    dest->dmem_write = src->dmem_write;
     return;
 }
 
 comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *dest, w_ctl_sigs_t *src) {
     // Student TODO
-    *dest = *src;
+    dest->w_enable = src->w_enable;
+    dest->wval_sel = src->wval_sel;
+    dest->dst_sel = src->dst_sel;
     return;
 }
 
@@ -243,6 +246,7 @@ comb_logic_t format_other(uint32_t insnbits, opcode_t op, uint8_t *src1,
 comb_logic_t format_m(uint32_t insnbits, opcode_t op, uint8_t *src1,
                       uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    *src1 = bitfield_u32(insnbits, 5, 5);
     if (op == OP_STUR) {
         *src2 = bitfield_u32(insnbits, 0, 5); // rt = data to store
     } else {
@@ -356,10 +360,11 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     uint8_t src2 = XZR_NUM;
 
     extract_regs(in->insnbits, out->op, in->format, &src1, &src2, &out->dst);
-    fix_regs(out->op, &src1, &src2, &out->dst);
+    //fix_regs(out->op, &src1, &src2, &out->dst);
     
     // if stur, read from rt instead of rd
-    regfile_read(src1, D_sigs.src2_sel ? out->dst : src2, &out->val_a, &out->val_b);
+    //regfile_read(src1, D_sigs.src2_sel ? out->dst : src2, &out->val_a, &out->val_b);
+    regfile_read(src1, src2, &out->val_a, &out->val_b);
     
     // immedidate val extract
     extract_immval(in->insnbits, out->op, &out->val_imm);
