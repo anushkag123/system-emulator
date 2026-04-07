@@ -94,11 +94,14 @@ comb_logic_t regfile_read(uint8_t src1, uint8_t src2, uint64_t *val_a,
  * Write to dst register if enabled. Take extra care for SP/XZR.
  */
 comb_logic_t regfile_write(uint8_t dst, uint64_t val_w, bool w_enable) {
-    if(!w_enable || dst == XZR_NUM || dst == SP_NUM) {
+    if(!w_enable || dst == XZR_NUM) {
         return;
     }
-
-    guest.proc->GPR[dst] = val_w;
+    if (dst == SP_NUM) {
+        guest.proc->SP = val_w;
+    } else {
+        guest.proc->GPR[dst] = val_w;
+    }
     return;
 }
 

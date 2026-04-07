@@ -173,10 +173,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
     uint64_t current_PC = 0;
 
     // Student TODO: Comment this line back in and fill in parameters
-    select_PC(in->pred_PC, X_out->op, X_out->val_a, 
-                X_out->multipurpose_val.seq_succ_PC, 
-                M_out->op, M_out->cond_holds, 
-                M_out->multipurpose_val.seq_succ_PC, &current_PC);
+    select_PC(in->pred_PC, X_in->op, X_in->val_a, 
+                X_in->multipurpose_val.seq_succ_PC, 
+                M_in->op, M_in->cond_holds, 
+                M_in->multipurpose_val.seq_succ_PC, &current_PC);
     
     /*
      * Students: This case is for generating HLT instructions
@@ -191,7 +191,6 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
     } else {
         // Student TODO
         imem(current_PC, &out->insnbits, &imem_err);
-        extern opcode_t itable[];
 
         out->op = itable[bitfield_u32(out->insnbits, 21, 11)]; 
         if (out->op == OP_ERROR){
@@ -202,6 +201,7 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         out->print_op = out->op;
         fix_instr_aliases(out->insnbits, &out->print_op);
         predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
+        F_PC = F_out->pred_PC;
     }
 
     if (imem_err || out->op == OP_ERROR) {
@@ -214,6 +214,5 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         in->status = STAT_AOK;
     }
     out->status = in->status;
-
     return;
 }
