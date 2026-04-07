@@ -33,5 +33,20 @@ extern bool X_set_flags;
  */
 comb_logic_t execute_instr(x_instr_impl_t *in, m_instr_impl_t *out) {
     // Student TODO
+    out->op = in->op;
+    out->print_op = in->print_op;
+    out->val_b = in->val_b;
+    out->dst = in->dst;
+    out->status = in-> status;
+    out->multipurpose_val.seq_succ_PC = in->multipurpose_val.seq_succ_PC;
+
+    copy_m_ctl_sigs(&out->M_sigs, &in->M_sigs);
+    copy_w_ctl_sigs(&out->W_sigs, &in->W_sigs);
+    uint64_t a = in->X_sigs.vala_sel ? in->multipurpose_val.seq_succ_PC : in->val_a;
+    uint64_t b = in->X_sigs.valb_sel ? in->val_b : (uint64_t) in->val_imm;
+    X_set_flags = in->X_sigs.set_flags;
+    alu(a, b, in->val_hw, X_nzcvval, in->ALU_op, X_set_flags, 
+        in->cond, &out->val_ex, &out->cond_holds, &X_nzcvval);
+    
     return;
 }
