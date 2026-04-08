@@ -42,13 +42,27 @@ comb_logic_t execute_instr(x_instr_impl_t *in, m_instr_impl_t *out) {
 
     copy_m_ctl_sigs(&out->M_sigs, &in->M_sigs);
     copy_w_ctl_sigs(&out->W_sigs, &in->W_sigs);
-    
+
     uint64_t a = in->X_sigs.vala_sel ? in->multipurpose_val.seq_succ_PC : in->val_a;
     uint64_t b = in->X_sigs.valb_sel ? in->val_b : (uint64_t) in->val_imm;
-    
     X_set_flags = in->X_sigs.set_flags;
-    alu(a, b, in->val_hw, X_nzcvval, in->ALU_op, X_set_flags, 
-        in->cond, &out->val_ex, &out->cond_holds, &X_nzcvval);
-    
+
+    if (in->op == OP_ADRP) {
+        uint64_t page_base = (in->multipurpose_val.seq_succ_PC - 4) & ~0xFFFULL;
+        out->val_ex = page_base + in->val_imm;
+        out->cond_holds = true;
+    } else if (in->op == OP_MOVK){
+        uint64_t shift_amt = in->val_hw << 4;
+        uint64_t mask = ~(0xFFFFULL << shift_amt);
+        out->val_ex = (in->val_a & mask) | (in->val_imm << shift_amt);
+        out->cond_holds = true;
+    } else if (in->op == OP_BL){
+        out->val_ex = in->multipurpose_val.seq_succ_PC;
+        out->cond_holds = true;
+    } else {
+        alu(a, b, in->val_hw, X_nzcvval, in->ALU_op, X_set_flags, 
+            in->cond, &out->val_ex, &out->cond_holds, &X_nzcvval);
+    }
+
     return;
 }
