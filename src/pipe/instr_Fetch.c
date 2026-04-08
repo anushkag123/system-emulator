@@ -174,10 +174,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
     uint64_t current_PC = 0;
 
     // Student TODO: Comment this line back in and fill in parameters
-    select_PC(in->pred_PC, X_in->op, X_in->val_a, 
-                X_in->multipurpose_val.seq_succ_PC, 
-                M_in->op, M_in->cond_holds, 
-                M_in->multipurpose_val.seq_succ_PC, &current_PC);
+    select_PC(in->pred_PC, X_out->op, X_out->val_a, 
+                X_out->multipurpose_val.seq_succ_PC, 
+                M_out->op, M_out->cond_holds, 
+                M_out->multipurpose_val.seq_succ_PC, &current_PC);
     
     /*
      * Students: This case is for generating HLT instructions
@@ -191,9 +191,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         imem_err = false;
     } else {
         // Student TODO
-        // if(F_in->status == STAT_INS) {
-        //     return;
-        // }
+         if(F_in->status == STAT_INS) {
+            out->status = F_in->status;
+            return;
+        }
         
         imem(current_PC, &out->insnbits, &imem_err);
 
@@ -203,9 +204,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         } else {
             out->format = ftable[out->op];
         }
-        out->print_op = out->op;
+  
         fix_instr_aliases(out->insnbits, &out->op);
         out->print_op = out->op;
+        
         predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
         F_PC = F_out->pred_PC;
     }

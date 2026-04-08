@@ -377,10 +377,8 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     out->dst = XZR_NUM;
 
     extract_regs(in->insnbits, out->op, in->format, &src1, &src2, &out->dst);
-    //fix_regs(out->op, &src1, &src2, &out->dst);
     
     // if stur, read from rt instead of rd
-    //regfile_read(src1, D_sigs.src2_sel ? out->dst : src2, &out->val_a, &out->val_b);
     regfile_read(src1, src2, &out->val_a, &out->val_b);
     
     // immedidate val extract
