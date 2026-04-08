@@ -191,9 +191,9 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         imem_err = false;
     } else {
         // Student TODO
-        if(F_in->status == STAT_INS) {
-            return;
-        }
+        // if(F_in->status == STAT_INS) {
+        //     return;
+        // }
         
         imem(current_PC, &out->insnbits, &imem_err);
 
