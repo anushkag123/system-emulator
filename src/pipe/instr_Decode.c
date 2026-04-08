@@ -39,9 +39,11 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
     X_sigs->valb_sel = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_CMP_RR || 
                         op == OP_CMN_RR || op == OP_ORR_RR || op == OP_EOR_RR || 
                         op == OP_ANDS_RR || op == OP_TST_RR || op == OP_LSL_RR || 
-                        op == OP_LSR_RR || op == OP_RET); 
+                        op == OP_LSR_RR || op == OP_RET || op == OP_MVN); 
     // check if setting nzcv flags                   
-    X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR);
+    //X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR);
+    X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR ||
+                        op == OP_CMP_RR || op == OP_CMN_RR || op == OP_TST_RR);
 
     // mem signals
     M_sigs->dmem_read = (op == OP_LDUR);
@@ -57,7 +59,7 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
                         op == OP_SUB_RI || op == OP_SUBS_RR || op == OP_ORR_RR || 
                         op == OP_EOR_RR || op == OP_ANDS_RR || op == OP_LSL_RI || 
                         op == OP_LSR_RI || op == OP_LSL_RR || op == OP_LSR_RR || 
-                        op == OP_ASR || op == OP_BL);
+                        op == OP_ASR || op == OP_BL || op == OP_MVN);
     return;
 }
 
@@ -82,16 +84,28 @@ static comb_logic_t extract_immval(uint32_t insnbits, opcode_t op,
     case OP_MOVZ:
         *imm = bitfield_u32(insnbits, 5, 16);
         break;
+    // I2
+    case OP_ADRP:
+        int64_t immhi = bitfield_s64(insnbits, 5, 19);
+        uint64_t immlo = bitfield_u32(insnbits, 29, 2);
+        // int64_t combined = (immhi << 2) | immlo;
+        // combined = (combined << 43) >> 43;
+        // *imm = combined << 12;
+        *imm = ((immhi << 2) | (int64_t)immlo) << 12;
+        break;
     // RI (arithmetic)
     case OP_ADD_RI:
     case OP_SUB_RI:
         *imm = bitfield_u32(insnbits, 10, 12);
         break;
     // RI (logical)
-    case OP_LSL_RI:
-    case OP_LSR_RI:
+    
     case OP_ASR:
+    case OP_LSR_RI:
         *imm = bitfield_u32(insnbits, 16, 6);
+        break;
+    case OP_LSL_RI:
+        *imm = 63 - bitfield_u32(insnbits, 10, 6);
         break;
     default:
         *imm = 0;
@@ -172,16 +186,13 @@ static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
  */
 comb_logic_t copy_m_ctl_sigs(m_ctl_sigs_t *dest, m_ctl_sigs_t *src) {
     // Student TODO
-    dest->dmem_read = src->dmem_read;
-    dest->dmem_write = src->dmem_write;
+    *dest = *src;
     return;
 }
 
 comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *dest, w_ctl_sigs_t *src) {
     // Student TODO
-    dest->w_enable = src->w_enable;
-    dest->wval_sel = src->wval_sel;
-    dest->dst_sel = src->dst_sel;
+    *dest = *src;
     return;
 }
 
@@ -200,7 +211,7 @@ comb_logic_t fix_regs(opcode_t op, uint8_t *src1, uint8_t *src2, uint8_t *dst) {
             break;
         
         case OP_MVN:
-            *src2 = XZR_NUM;
+            *src1 = XZR_NUM;
             break;
         
         case OP_LDUR:
@@ -259,6 +270,7 @@ comb_logic_t format_i1(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
     *dst = bitfield_u32(insnbits, 0, 5);
+    if (op == OP_MOVK) *src1 = *dst;
     return;
 }
 
@@ -348,6 +360,10 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     // union pass
     out->multipurpose_val.seq_succ_PC = in->multipurpose_val.seq_succ_PC;
     
+    if (out->op == OP_ADRP) {
+        out->val_a = in->multipurpose_val.seq_succ_PC - 4;
+    }
+
     // control signals
     d_ctl_sigs_t D_sigs;
     generate_DXMW_control(out->op, &D_sigs, &out->X_sigs, &out->M_sigs, &out->W_sigs);
@@ -358,6 +374,7 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     // extract registers
     uint8_t src1 = XZR_NUM;
     uint8_t src2 = XZR_NUM;
+    out->dst = XZR_NUM;
 
     extract_regs(in->insnbits, out->op, in->format, &src1, &src2, &out->dst);
     //fix_regs(out->op, &src1, &src2, &out->dst);

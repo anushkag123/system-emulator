@@ -37,6 +37,7 @@ select_PC(uint64_t pred_PC,                  // The predicted PC
         return;
     }
     // Modify starting here.
+    
     // fix mispredicted branch
     if (M_opcode == OP_B_COND && !M_cond_val) {
         *current_PC = seq_succ;
@@ -190,6 +191,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         imem_err = false;
     } else {
         // Student TODO
+        if(F_in->status == STAT_INS) {
+            return;
+        }
+        
         imem(current_PC, &out->insnbits, &imem_err);
 
         out->op = itable[bitfield_u32(out->insnbits, 21, 11)]; 
@@ -199,7 +204,8 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
             out->format = ftable[out->op];
         }
         out->print_op = out->op;
-        fix_instr_aliases(out->insnbits, &out->print_op);
+        fix_instr_aliases(out->insnbits, &out->op);
+        out->print_op = out->op;
         predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
         F_PC = F_out->pred_PC;
     }

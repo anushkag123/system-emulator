@@ -23,16 +23,7 @@ extern int64_t W_wval;
  * You will need the global variable W_wval.
  */
 comb_logic_t wback_instr(w_instr_impl_t *in) {
-    // Student TODO{
-        // if(in->W_sigs.dst_sel){
-        //     W_wval = 30;
-            
-        // } else if (in->W_sigs.wval_sel){
-        //     W_wval = in->val_mem;
-        // } else {
-        //     W_wval = in->val_ex;
-        // }
-
+    // Student TODO
     uint8_t dst = in->W_sigs.dst_sel ? 30 : in->dst;
     W_wval = in->W_sigs.wval_sel ? in->val_mem : in->val_ex;
     regfile_write(dst, W_wval, in->W_sigs.w_enable);
