@@ -12,10 +12,12 @@
 #include "instr.h"
 #include "instr_pipeline.h"
 
+
 extern uint8_t D_src1, D_src2;
 
 // LUT for extracting registers according to format.
 extract_reg_func_t extract_regs_table[NUM_FORMATS];
+
 
 /*
  * Control signals for D, X, M, and W stages.
@@ -380,7 +382,10 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     
     // if stur, read from rt instead of rd
     regfile_read(src1, src2, &out->val_a, &out->val_b);
-    
+
+    D_src1 = src1;
+    D_src2 = src2;
+        
     // immedidate val extract
     extract_immval(in->insnbits, out->op, &out->val_imm);
     

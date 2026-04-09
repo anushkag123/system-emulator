@@ -123,11 +123,22 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     pipe_control_stage(S_EXECUTE, 0, 0);
     pipe_control_stage(S_MEMORY, 0, 0);
     pipe_control_stage(S_WBACK, 0, 0);
-    
+
+    if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
+        pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_DECODE, 0, 1);
+        pipe_control_stage(S_EXECUTE, 1, 0);
+    } else if (check_mispred_branch_hazard(X_opcode, X_condval)) {
+        pipe_control_stage(S_DECODE, 1, 0);
+        pipe_control_stage(S_EXECUTE, 1, 0);
+    } else if (check_ret_hazard(D_opcode)) {
+        pipe_control_stage(S_DECODE, 1, 0);
+    }
 
     bool x_err = error(X_in->status);
     bool m_err = error(M_in->status);
     bool w_err = error(W_in->status);
+    bool d_err = error(D_in->status);
 
     if (w_err || m_err || x_err) {
         deassert_flags = true;
@@ -145,20 +156,10 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     } else if (x_err){
         pipe_control_stage(S_FETCH, 1, 0);
         pipe_control_stage(S_DECODE, 1, 0);
-    } else if (error(F_in->status) || error(D_in->status)) {
-        pipe_control_stage(S_FETCH, 0, 1);
-    } else {
-        if (check_mispred_branch_hazard(X_opcode, X_condval)) {
-            pipe_control_stage(S_FETCH, 1, 0);
-            pipe_control_stage(S_DECODE, 1, 0);
-        } else if (check_ret_hazard(D_opcode)) {
-            pipe_control_stage(S_FETCH, 1, 0);
-        } else if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
-            pipe_control_stage(S_FETCH, 0, 1);
-            pipe_control_stage(S_DECODE, 0, 1);
-            pipe_control_stage(S_EXECUTE, 1, 0);
-        }
+    } else if (d_err){
+        pipe_control_stage(S_FETCH, 1, 0);
     }
+
     
 
 #else

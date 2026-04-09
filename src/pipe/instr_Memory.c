@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <stdio.h>
+
 extern uint64_t M_PC;
 
 extern comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *, w_ctl_sigs_t *);
@@ -28,6 +30,8 @@ extern comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *, w_ctl_sigs_t *);
  */
 comb_logic_t memory_instr(m_instr_impl_t *in, w_instr_impl_t *out) {
     // Student TODO
+    M_PC = in->multipurpose_val.correction_PC;
+
     out->op = in->op;
     out->print_op = in->print_op;
     
@@ -38,5 +42,6 @@ comb_logic_t memory_instr(m_instr_impl_t *in, w_instr_impl_t *out) {
     bool err = false;
     dmem(in->val_ex, in->val_b, in->M_sigs.dmem_read, in->M_sigs.dmem_write, &out->val_mem, &err);
     out->status = err ? STAT_ADR : in->status;
+    printf("Memory stage: PC = 0x%lx, val_mem = 0x%x\n", in->multipurpose_val.correction_PC, in->op);
     return;
 }
