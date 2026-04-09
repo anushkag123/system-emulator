@@ -63,6 +63,10 @@ void pipe_control_stage(proc_stage_t stage, bool bubble, bool stall) {
 
 bool check_ret_hazard(opcode_t D_opcode) {
     // Student TODO
+    if(D_opcode == OP_RET) {
+        pipe_control_stage(S_FETCH, 1, 0);
+        return true;
+    }
     return false;
 }
 
@@ -80,18 +84,42 @@ bool check_cb_hazard(opcode_t D_opcode, uint64_t D_val_a) {
 
 bool check_mispred_branch_hazard(opcode_t X_opcode, bool X_condval) {
     // Student TODO
+    if(X_opcode == OP_B_COND && !X_condval) {
+        pipe_control_stage(S_FETCH, 1, 0);
+        pipe_control_stage(S_DECODE, 1, 0);
+    }
     return false;
 }
 
 bool check_load_use_hazard(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
                            opcode_t X_opcode, uint8_t X_dst) {
     // Student TODO
+    if(X_opcode == OP_LDUR) {
+        if (D_src1 == X_dst || D_src2 == X_dst) {
+            if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
+                || D_opcode == OP_STUR || D_opcode == OP_NOP || D_opcode == OP_HLT))
+            pipe_control_stage(S_FETCH, 0, 1);
+            pipe_control_stage(S_DECODE, 0, 1);
+            pipe_control_stage(S_EXECUTE, 1, 0);
+            return true;
+        }
+    }
     return false;
 }
 
 bool error(stat_t status) {
     // Student TODO
-    return false;
+    if (status == STAT_AOK || status == STAT_BUB) return false;
+    if(status == STAT_ADR) {
+        deassert_flags = true;
+        pipe_control_stage(S_FETCH, 1, 0);
+        pipe_control_stage(S_DECODE, 1, 0);
+        pipe_control_stage(S_EXECUTE, 1, 0);
+    }
+    if (status == STAT_INS || status == STAT_HLT) {
+        pipe_control_stage(S_FETCH, 1, 0);
+    }
+
 }
 
 comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
@@ -101,6 +129,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     // This will need to be updated in week 2, good enough for week 1
 #ifdef PIPE
     // Student TODO
+    
 #else
     bool f_stall = F_out->status == STAT_HLT || F_out->status == STAT_INS;
     pipe_control_stage(S_FETCH, false, f_stall);
