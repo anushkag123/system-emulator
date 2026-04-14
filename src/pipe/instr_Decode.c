@@ -222,6 +222,7 @@ comb_logic_t fix_regs(opcode_t op, uint8_t *src1, uint8_t *src2, uint8_t *dst) {
         case OP_SUB_RI:
             if (*src1 == 31) *src1 = SP_NUM;
             if (*dst == 31) *dst = SP_NUM;
+            if (op == OP_STUR && *src2 == 31) *src2 = SP_NUM;
             break;
         
         default:
@@ -362,9 +363,6 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     // union pass
     out->multipurpose_val.seq_succ_PC = in->multipurpose_val.seq_succ_PC;
     
-    if (out->op == OP_ADRP) {
-        out->val_a = in->multipurpose_val.seq_succ_PC - 4;
-    }
 
     // control signals
     d_ctl_sigs_t D_sigs;
@@ -385,6 +383,10 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
 
     D_src1 = src1;
     D_src2 = src2;
+
+    if (out->op == OP_ADRP) {
+        out->val_a = in->multipurpose_val.seq_succ_PC - 4;
+    }
         
     // immedidate val extract
     extract_immval(in->insnbits, out->op, &out->val_imm);

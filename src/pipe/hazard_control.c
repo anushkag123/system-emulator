@@ -97,9 +97,9 @@ bool check_load_use_hazard(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     // Student TODO
     if(X_opcode == OP_LDUR && X_dst != 32) {
         if (D_src1 == X_dst || D_src2 == X_dst) {
-            // if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
-            //     || D_opcode == OP_STUR || D_opcode == OP_NOP || D_opcode == OP_HLT))
-            return true;
+            if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
+                || D_opcode == OP_STUR || D_opcode == OP_NOP || D_opcode == OP_HLT))
+                return true;
         }
     }
     return false;
@@ -107,8 +107,12 @@ bool check_load_use_hazard(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
 
 bool error(stat_t status) {
     // Student TODO
-    if (status == STAT_AOK || status == STAT_BUB) return false;
-    return true;
+    //return (status != STAT_AOK && status != STAT_BUB);
+    return (status == STAT_ADR || status == STAT_INS);
+
+    /*if(status == STAT_ADR || status == STAT_INS || status == STAT_HLT) 
+        return true;
+    return false;*/
 }
 
 comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
@@ -123,6 +127,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     pipe_control_stage(S_EXECUTE, 0, 0);
     pipe_control_stage(S_MEMORY, 0, 0);
     pipe_control_stage(S_WBACK, 0, 0);
+    deassert_flags = false;
 
     if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
         pipe_control_stage(S_FETCH, 0, 1);
@@ -132,35 +137,28 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
         pipe_control_stage(S_DECODE, 1, 0);
         pipe_control_stage(S_EXECUTE, 1, 0);
     } else if (check_ret_hazard(D_opcode)) {
+        //pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);
     }
 
-    bool x_err = error(X_in->status);
     bool m_err = error(M_in->status);
     bool w_err = error(W_in->status);
-    bool d_err = error(D_in->status);
 
-    if (w_err || m_err || x_err) {
+    if (m_err) {
+        pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_DECODE, 1, 0);
+        pipe_control_stage(S_EXECUTE, 1, 0);
         deassert_flags = true;
     }
 
     if (w_err){
-        pipe_control_stage(S_FETCH, 1, 0);
+        pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);
         pipe_control_stage(S_EXECUTE, 1, 0);
-        pipe_control_stage(S_MEMORY, 1, 0);
-    } else if (m_err) {
-        pipe_control_stage(S_FETCH, 1, 0);
-        pipe_control_stage(S_DECODE, 1, 0);
-        pipe_control_stage(S_EXECUTE, 1, 0);
-    } else if (x_err){
-        pipe_control_stage(S_FETCH, 1, 0);
-        pipe_control_stage(S_DECODE, 1, 0);
-    } else if (d_err){
-        pipe_control_stage(S_FETCH, 1, 0);
-    }
-
-    
+        pipe_control_stage(S_MEMORY, 0, 1);
+        deassert_flags = true;
+    } 
+        
 
 #else
     bool f_stall = F_out->status == STAT_HLT || F_out->status == STAT_INS;
@@ -169,5 +167,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     pipe_control_stage(S_EXECUTE, false, false);
     pipe_control_stage(S_MEMORY, false, false);
     pipe_control_stage(S_WBACK, false, false);
+
 #endif
+return;
 }

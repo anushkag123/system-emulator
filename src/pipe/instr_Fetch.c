@@ -12,6 +12,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+
 extern machine_t guest;
 extern uint64_t F_PC;
 
@@ -169,11 +170,27 @@ static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
  * select_pc, predict_pc, and imem.
  */
 comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
+
     
     bool imem_err = 0;
     uint64_t current_PC = 0;
 
-    // Student TODO: Comment this line back in and fill in parameters
+    // bool x_exc = (X_out->status == STAT_ADR || X_out->status == STAT_INS);
+    // bool m_exc = (M_out->status == STAT_ADR || M_out->status == STAT_INS);
+    // bool w_exc = (W_out->status == STAT_ADR || W_out->status == STAT_INS);
+
+    // if (x_exc || m_exc || w_exc) {
+    //     current_PC = 0;
+    // } else {
+    //     select_PC(in->pred_PC,
+    //               X_out->op, X_out->val_a,
+    //               X_out->multipurpose_val.seq_succ_PC,
+    //               M_out->op, M_out->cond_holds,
+    //               M_out->multipurpose_val.seq_succ_PC,
+    //               &current_PC);
+    // }
+
+    // // Student TODO: Comment this line back in and fill in parameters
     select_PC(in->pred_PC, X_out->op, X_out->val_a, 
                 X_out->multipurpose_val.seq_succ_PC, 
                 M_out->op, M_out->cond_holds, 
@@ -193,10 +210,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         // Student TODO
         out->multipurpose_val.correction_PC = current_PC;
         
-        if(F_in->status == STAT_INS) {
+        /*if(F_in->status == STAT_INS || F_in->status == STAT_ADR) {
             out->status = F_in->status;
             return;
-        }
+        }*/
         
         imem(current_PC, &out->insnbits, &imem_err);
 
@@ -212,6 +229,12 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         
         predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
         F_PC = F_out->pred_PC;
+        out->multipurpose_val.correction_PC = current_PC;
+        
+        if (imem_err || out->op == OP_ERROR) {
+            out->multipurpose_val.correction_PC = current_PC;
+        }
+        
     }
 
     if (imem_err || out->op == OP_ERROR) {
