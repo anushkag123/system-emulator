@@ -213,9 +213,8 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         fix_instr_aliases(out->insnbits, &out->op);
         out->print_op = out->op;
         
-        predict_PC(current_PC, out->insnbits, out->op, &F_out->pred_PC, &out->multipurpose_val.seq_succ_PC);
-        F_PC = F_out->pred_PC;
-        out->multipurpose_val.correction_PC = current_PC;
+        predict_PC(current_PC, out->insnbits, out->op, &F_in->pred_PC, &out->multipurpose_val.seq_succ_PC);
+        F_PC = F_in->pred_PC;
         
     }
 

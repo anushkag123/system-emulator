@@ -164,7 +164,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     } else if (check_mispred_branch_hazard(X_opcode, X_condval)) {
         pipe_control_stage(S_FETCH, 1, 0);
         pipe_control_stage(S_DECODE, 1, 0);
-        //pipe_control_stage(S_EXECUTE, 1, 0);
+        pipe_control_stage(S_EXECUTE, 1, 0);
     } else if (check_ret_hazard(D_opcode)) {
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);

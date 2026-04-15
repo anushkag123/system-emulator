@@ -207,13 +207,17 @@ comb_logic_t fix_regs(opcode_t op, uint8_t *src1, uint8_t *src2, uint8_t *dst) {
     // Student TODO
     switch(op){
         case OP_CMN_RR:
-        case OP_CMP_RR: 
+        case OP_CMP_RR:
         case OP_TST_RR:
             *dst = XZR_NUM;
+            if (*src1 == 31) *src1 = XZR_NUM;
+            if (*src2 == 31) *src2 = XZR_NUM;
             break;
         
         case OP_MVN:
             *src1 = XZR_NUM;
+            if (*src2 == 31) *src2 = XZR_NUM;
+            if (*dst == 31) *dst = XZR_NUM;
             break;
         
         case OP_LDUR:
@@ -222,7 +226,7 @@ comb_logic_t fix_regs(opcode_t op, uint8_t *src1, uint8_t *src2, uint8_t *dst) {
         case OP_SUB_RI:
             if (*src1 == 31) *src1 = SP_NUM;
             if (*dst == 31) *dst = SP_NUM;
-            if (op == OP_STUR && *src2 == 31) *src2 = SP_NUM;
+            if (op == OP_STUR && *src2 == 31) *src2 = XZR_NUM;
             break;
         
         default:
