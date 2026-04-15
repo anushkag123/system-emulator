@@ -175,27 +175,13 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
     bool imem_err = 0;
     uint64_t current_PC = 0;
 
-    // bool x_exc = (X_out->status == STAT_ADR || X_out->status == STAT_INS);
-    // bool m_exc = (M_out->status == STAT_ADR || M_out->status == STAT_INS);
-    // bool w_exc = (W_out->status == STAT_ADR || W_out->status == STAT_INS);
-
-    // if (x_exc || m_exc || w_exc) {
-    //     current_PC = 0;
-    // } else {
-    //     select_PC(in->pred_PC,
-    //               X_out->op, X_out->val_a,
-    //               X_out->multipurpose_val.seq_succ_PC,
-    //               M_out->op, M_out->cond_holds,
-    //               M_out->multipurpose_val.seq_succ_PC,
-    //               &current_PC);
-    // }
-
-    // // Student TODO: Comment this line back in and fill in parameters
+    // Student TODO: Comment this line back in and fill in parameters
     select_PC(in->pred_PC, X_out->op, X_out->val_a, 
                 X_out->multipurpose_val.seq_succ_PC, 
                 M_out->op, M_out->cond_holds, 
                 M_out->multipurpose_val.seq_succ_PC, &current_PC);
     
+
     /*
      * Students: This case is for generating HLT instructions
      * to stop the pipeline. Only write your code in the **else** case.
@@ -208,7 +194,7 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         imem_err = false;
     } else {
         // Student TODO
-        out->multipurpose_val.correction_PC = current_PC;
+        //out->multipurpose_val.correction_PC = current_PC;
         
         /*if(F_in->status == STAT_INS || F_in->status == STAT_ADR) {
             out->status = F_in->status;
@@ -231,21 +217,19 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         F_PC = F_out->pred_PC;
         out->multipurpose_val.correction_PC = current_PC;
         
-        if (imem_err || out->op == OP_ERROR) {
-            out->multipurpose_val.correction_PC = current_PC;
-        }
-        
     }
 
     if (imem_err || out->op == OP_ERROR) {
         in->status = STAT_INS;
-        F_in->status = in->status;
+        //F_in->status = in->status;
     } else if (out->op == OP_HLT) {
         in->status = STAT_HLT;
-        F_in->status = in->status;
+        //F_in->status = in->status;
     } else {
         in->status = STAT_AOK;
+        //F_in->status = in->status;
     }
+    F_in->status = in->status;
     out->status = in->status;
     return;
 }

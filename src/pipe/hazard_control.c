@@ -96,19 +96,30 @@ bool check_load_use_hazard(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
                            opcode_t X_opcode, uint8_t X_dst) {
     // Student TODO
     if(X_opcode == OP_LDUR && X_dst != 32) {
-        if (D_src1 == X_dst || D_src2 == X_dst) {
-            if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
-                || D_opcode == OP_STUR || D_opcode == OP_NOP || D_opcode == OP_HLT))
-                return true;
+         if (D_src1 == X_dst || D_src2 == X_dst) {
+               return true;
         }
     }
     return false;
+/*
+    if (X_opcode == OP_LDUR && X_dst != 32) {
+        if (D_opcode == OP_STUR) {
+            // Only stall if base address register depends on load
+            if (D_src1 == X_dst)
+                return true;
+        } else if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
+                    || D_opcode == OP_NOP || D_opcode == OP_HLT)) {
+            if (D_src1 == X_dst || D_src2 == X_dst)
+                return true;
+        }
+    }
+    return false;*/
 }
 
 bool error(stat_t status) {
     // Student TODO
-    //return (status != STAT_AOK && status != STAT_BUB);
-    return (status == STAT_ADR || status == STAT_INS);
+    return (status != STAT_AOK && status != STAT_BUB);
+    //return (status == STAT_ADR || status == STAT_INS);
 
     /*if(status == STAT_ADR || status == STAT_INS || status == STAT_HLT) 
         return true;
@@ -129,36 +140,36 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     pipe_control_stage(S_WBACK, 0, 0);
     deassert_flags = false;
 
-    if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
+    bool m_err = error(M_in->status);
+    bool w_err = error(W_in->status);
+    ///bool w_err2 = error(W_out->status);
+
+    if (w_err){
+        pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_DECODE, 0, 1);
+        pipe_control_stage(S_EXECUTE, 0, 1);
+        pipe_control_stage(S_MEMORY, 0, 1);
+        //pipe_control_stage(S_WBACK, 0, 0);
+        deassert_flags = true; 
+    } else if (m_err) {
+        pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_DECODE, 0, 1);
+        pipe_control_stage(S_EXECUTE, 0, 1);
+        //pipe_control_stage(S_MEMORY, 0, 0)
+        deassert_flags = true;
+    } else if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 0, 1);
         pipe_control_stage(S_EXECUTE, 1, 0);
     } else if (check_mispred_branch_hazard(X_opcode, X_condval)) {
+        pipe_control_stage(S_FETCH, 1, 0);
         pipe_control_stage(S_DECODE, 1, 0);
-        pipe_control_stage(S_EXECUTE, 1, 0);
+        //pipe_control_stage(S_EXECUTE, 1, 0);
     } else if (check_ret_hazard(D_opcode)) {
-        //pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);
     }
 
-    bool m_err = error(M_in->status);
-    bool w_err = error(W_in->status);
-
-    if (m_err) {
-        pipe_control_stage(S_FETCH, 0, 1);
-        pipe_control_stage(S_DECODE, 1, 0);
-        pipe_control_stage(S_EXECUTE, 1, 0);
-        deassert_flags = true;
-    }
-
-    if (w_err){
-        pipe_control_stage(S_FETCH, 0, 1);
-        pipe_control_stage(S_DECODE, 1, 0);
-        pipe_control_stage(S_EXECUTE, 1, 0);
-        pipe_control_stage(S_MEMORY, 0, 1);
-        deassert_flags = true;
-    } 
-        
 
 #else
     bool f_stall = F_out->status == STAT_HLT || F_out->status == STAT_INS;

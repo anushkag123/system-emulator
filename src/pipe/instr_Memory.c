@@ -30,7 +30,9 @@ extern comb_logic_t copy_w_ctl_sigs(w_ctl_sigs_t *, w_ctl_sigs_t *);
  */
 comb_logic_t memory_instr(m_instr_impl_t *in, w_instr_impl_t *out) {
     // Student TODO
-    M_PC = in->multipurpose_val.seq_succ_PC;
+    if (in->status != STAT_BUB) {
+        M_PC = in->multipurpose_val.seq_succ_PC;
+    }
 
     out->op = in->op;
     out->print_op = in->print_op;
