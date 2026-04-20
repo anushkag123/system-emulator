@@ -239,20 +239,21 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     evicted_line_t *evicted_line = malloc(sizeof(evicted_line_t));
     evicted_line->data = (byte_t *) calloc(cache->B, sizeof(byte_t));
     /* your implementation */
-
-    cache_line_t *line = select_line(cache, addr);
     
     int b = _log(cache->B);
     int s_bits = _log(cache->C / (cache->A * cache->B));
     int s_idx = (addr >> b) & ((1 << s_bits) - 1);
     uword_t tag = (addr >> (b + s_bits));
     cache_set_t *set = &cache->sets[s_idx];
+
+    cache_line_t *line = select_line(cache, addr);
+    int way_idx = line - set->lines;
     
     // save evicted line info
     evicted_line->valid = line->valid;
     evicted_line->dirty = line->dirty;
     evicted_line->block_addr = (line->tag << (b + s_bits)) | (s_idx << b);
-    evicted_line->data = line->data;
+    memcpy(evicted_line->data, line->data, cache->B);
     
     // check if line being evcied is clean or dirty
     if (evicted_line->valid){
@@ -263,13 +264,15 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
         }
     }
 
-    int way_idx = line - set->lines;
-
     line->tag = tag;
     line->valid = true;
     line->dirty = (operation == WRITE);
     set->next_lru = lru(cache->A, way_idx, &set->lru_matrix);
-    line->data = incoming_data;
+    if (incoming_data) {
+        memcpy(line->data, incoming_data, cache->B);
+    } else {
+        memset(line->data, 0, cache->B);
+    }
     return evicted_line;
 }
 
