@@ -137,6 +137,18 @@ void free_cache(cache_t *cache) {
  */
 cache_line_t *get_line(cache_t *cache, uword_t addr) {
     /* your implementation */
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    int s_idx = (addr >> b) & ((1 << s_bits) - 1);
+
+    cache_set_t *set = &cache->sets[s_idx];
+    uword_t tag = (addr >> (b + s_bits));
+
+    for(unsigned int i = 0 ; i < cache->A; i++) {
+        if(set->lines[i].valid && set->lines[i].tag == tag) {
+            return &set->lines[i];
+        }
+    }
     return NULL;
 }
 
@@ -146,7 +158,27 @@ cache_line_t *get_line(cache_t *cache, uword_t addr) {
  */
 cache_line_t *select_line(cache_t *cache, uword_t addr) {
     /* your implementation */
-    return NULL;
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    int s_idx = (addr >> b) & ((1 << s_bits) - 1);
+
+    cache_set_t *set = &cache->sets[s_idx];
+    uword_t tag = (addr >> (b + s_bits));
+
+    for(unsigned int i = 0; i < cache->A; i++) {
+        if(!set->lines[i].valid) {
+            return &set->lines[i];
+        }
+    }
+
+    cache_line_t *lru_line = &set->lines[0];
+    for(unsigned int i = 0; i < cache->A; i++) {
+        if(set->lines[i].lru < lru_line->lru) {
+            lru_line = &set->lines[i];
+        }
+    }
+    
+    return lru_line;
 }
 
 /*  STUDENT TO-DO:
@@ -154,6 +186,7 @@ cache_line_t *select_line(cache_t *cache, uword_t addr) {
  *  Return true if pos hits in the cache.
  */
 bool check_hit(cache_t *cache, uword_t addr, operation_t operation) {
+    
     return false;
 }
 
