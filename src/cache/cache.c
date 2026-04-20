@@ -37,6 +37,8 @@ int dirty_eviction_count = 0;
 // Increment when a clean eviction occurs
 int clean_eviction_count = 0;
 
+int max_lru = 0;
+
 /* STUDENT TO-DO: add more globals, structs, macros if necessary */
 
 static size_t _log(size_t x) {
@@ -163,7 +165,6 @@ cache_line_t *select_line(cache_t *cache, uword_t addr) {
     int s_idx = (addr >> b) & ((1 << s_bits) - 1);
 
     cache_set_t *set = &cache->sets[s_idx];
-    uword_t tag = (addr >> (b + s_bits));
 
     for(unsigned int i = 0; i < cache->A; i++) {
         if(!set->lines[i].valid) {
@@ -186,8 +187,20 @@ cache_line_t *select_line(cache_t *cache, uword_t addr) {
  *  Return true if pos hits in the cache.
  */
 bool check_hit(cache_t *cache, uword_t addr, operation_t operation) {
+    cache_line_t *line = get_line(cache, addr);
+    if(line == NULL) {
+        miss_count++;
+        return false;
+    }
+    hit_count++;
     
-    return false;
+    if(operation == WRITE) {
+        line->dirty = 1;
+    }
+    max_lru += 1;
+    line->lru = max_lru;
+
+    return true;
 }
 
 /*  STUDENT TO-DO:
@@ -199,8 +212,30 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     evicted_line_t *evicted_line = malloc(sizeof(evicted_line_t));
     evicted_line->data = (byte_t *) calloc(cache->B, sizeof(byte_t));
     /* your implementation */
+    //evicted_line = select_line(cache, addr);
+    cache_line_t *line = select_line(cache, addr);
+    evicted_line->valid = line->valid;
+    evicted_line->dirty = line->dirty;
+    evicted_line->block_addr = addr;
+    evicted_line->data = line->data;
 
-    return NULL;
+    //evicted_line->data = incoming_data;
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    uword_t tag = (addr >> (b + s_bits));
+    
+    line->tag = tag;
+    line->valid = true;
+    line->data = incoming_data;
+    if (operation == WRITE){
+        line->dirty = 1;
+        clean_eviction_count++;
+    } else {
+        line->dirty = 0;
+        dirty_eviction_count++;
+    }
+
+    return evicted_line;
 }
 
 /* STUDENT TO-DO:
@@ -209,7 +244,10 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
  */
 void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
     /* your implementation */
-
+    cache_line_t *line = get_line(cache, addr);
+    int offset = addr & (cache->B - 1);
+    memcpy(dest, line->data + offset, 8);
+    //*dest = line->data + offset;
 }
 
 /* STUDENT TO-DO:
@@ -218,6 +256,10 @@ void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
  */
 void set_word_cache(cache_t *cache, uword_t addr, word_t val) {
     /* your implementation */
+    cache_line_t *line = get_line(cache, addr);
+    int offset = addr & (cache->B - 1);
+    memcpy(line->data + offset, &val, 8);
+    //line->data = val;
 }
 
 /*

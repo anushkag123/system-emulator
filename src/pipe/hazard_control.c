@@ -133,6 +133,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     // This will need to be updated in week 2, good enough for week 1
 #ifdef PIPE
     // Student TODO
+    
     pipe_control_stage(S_FETCH, 0, 0);
     pipe_control_stage(S_DECODE, 0, 0);
     pipe_control_stage(S_EXECUTE, 0, 0);
@@ -140,11 +141,18 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     pipe_control_stage(S_WBACK, 0, 0);
     deassert_flags = false;
 
+    
+
     bool m_err = error(M_in->status);
     bool w_err = error(W_in->status);
-    ///bool w_err2 = error(W_out->status);
 
-    if (w_err){
+    if (dmem_status == IN_FLIGHT) {
+        pipe_control_stage(S_FETCH, 0, 1);
+        pipe_control_stage(S_DECODE, 0, 1);
+        pipe_control_stage(S_EXECUTE, 0, 1);
+        pipe_control_stage(S_MEMORY, 0, 1);
+        pipe_control_stage(S_WBACK, 0, 1);
+    } else if (w_err){
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 0, 1);
         pipe_control_stage(S_EXECUTE, 0, 1);
@@ -168,7 +176,7 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     } else if (check_ret_hazard(D_opcode)) {
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);
-    }
+    } 
 
 
 #else
