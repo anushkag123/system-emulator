@@ -197,8 +197,8 @@ bool check_hit(cache_t *cache, uword_t addr, operation_t operation) {
     if(operation == WRITE) {
         line->dirty = 1;
     }
-    max_lru += 1;
-    line->lru = max_lru;
+ 
+    line->lru = ++max_lru;
 
     return true;
 }
@@ -212,29 +212,32 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     evicted_line_t *evicted_line = malloc(sizeof(evicted_line_t));
     evicted_line->data = (byte_t *) calloc(cache->B, sizeof(byte_t));
     /* your implementation */
-    //evicted_line = select_line(cache, addr);
+    //get data for line being evicted
     cache_line_t *line = select_line(cache, addr);
     evicted_line->valid = line->valid;
     evicted_line->dirty = line->dirty;
     evicted_line->block_addr = addr;
     evicted_line->data = line->data;
+    
+    // check if line being evcied is clean or dirty
+    if (evicted_line->valid){
+        if (evicted_line->dirty == 1) {
+            dirty_eviction_count++;
+        } else {
+            clean_eviction_count++;
+        }
+    }
 
-    //evicted_line->data = incoming_data;
+    // get new line's tag & fields
     int b = _log(cache->B);
     int s_bits = _log(cache->C / (cache->A * cache->B));
     uword_t tag = (addr >> (b + s_bits));
     
     line->tag = tag;
     line->valid = true;
+    line->dirty = (operation == WRITE);
+    line->lru = ++max_lru;
     line->data = incoming_data;
-    if (operation == WRITE){
-        line->dirty = 1;
-        clean_eviction_count++;
-    } else {
-        line->dirty = 0;
-        dirty_eviction_count++;
-    }
-
     return evicted_line;
 }
 
@@ -247,7 +250,6 @@ void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
     cache_line_t *line = get_line(cache, addr);
     int offset = addr & (cache->B - 1);
     memcpy(dest, line->data + offset, 8);
-    //*dest = line->data + offset;
 }
 
 /* STUDENT TO-DO:
@@ -259,7 +261,6 @@ void set_word_cache(cache_t *cache, uword_t addr, word_t val) {
     cache_line_t *line = get_line(cache, addr);
     int offset = addr & (cache->B - 1);
     memcpy(line->data + offset, &val, 8);
-    //line->data = val;
 }
 
 /*
