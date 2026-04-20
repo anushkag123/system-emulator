@@ -134,7 +134,11 @@ void free_cache(cache_t *cache) {
  */
 cache_set_t *get_set(cache_t *cache, uword_t addr) {
     /* your implementation */
-    return NULL;
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    int s_idx = (addr >> b) & ((1 << s_bits) - 1);
+
+    return &cache->sets[s_idx];
 }
 
 /* STUDENT TO-DO:
@@ -144,8 +148,21 @@ cache_set_t *get_set(cache_t *cache, uword_t addr) {
  */
 cache_line_t *get_line(cache_t *cache, uword_t addr) {
     /* your implementation */
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    int s_idx = (addr >> b) & ((1 << s_bits) - 1);
+
+    cache_set_t *set = &cache->sets[s_idx];
+    uword_t tag = (addr >> (b + s_bits));
+
+    for(unsigned int i = 0 ; i < cache->A; i++) {
+        if(set->lines[i].valid && set->lines[i].tag == tag) {
+            return &set->lines[i];
+        }
+    }
     return NULL;
 }
+
 
 /* STUDENT TO-DO:
  * Implement the matrix based LRU algorithm seen in AC Lab
@@ -156,6 +173,19 @@ uword_t lru(unsigned int A, uword_t access, uword_t *matrix)
     assert (A <= 8);
 
     /* your implementation*/
+    // set col to 1s
+    uword_t valid_bytes_mask = (A >= 8) ? ~0ULL : ((1ULL << (A * 8)) - 1);
+    uword_t col_mask = 0x0101010101010101ULL & valid_bytes_mask;
+    *matrix |= (col_mask << access);
+
+    // set row to 0s
+    uword_t row_mask = ~(0xFFULL << (access * 8));
+    *matrix &= row_mask;
+
+    // find col that's all 0s
+    for (unsigned int j = 0; j < A; j++){
+        if ((*matrix & (col_mask << j)) == 0) return j;
+    }
     return 0;
 }
 
@@ -165,7 +195,15 @@ uword_t lru(unsigned int A, uword_t access, uword_t *matrix)
  */
 cache_line_t *select_line(cache_t *cache, uword_t addr) {
     /* your implementation */
-    return NULL;
+    cache_set_t *set = get_set(cache, addr);
+
+    for(unsigned int i = 0; i < cache->A; i++) {
+        if(!set->lines[i].valid) {
+            return &set->lines[i];
+        }
+    }
+
+    return &set->lines[set->next_lru];
 }
 
 /*  STUDENT TO-DO:
@@ -174,7 +212,22 @@ cache_line_t *select_line(cache_t *cache, uword_t addr) {
  */
 bool check_hit(cache_t *cache, uword_t addr, operation_t operation) {
     /* your implementation */
-    return false;
+    cache_line_t *line = get_line(cache, addr);
+    if(line == NULL) {
+        miss_count++;
+        return false;
+    }
+    hit_count++;
+    
+    if(operation == WRITE) {
+        line->dirty = 1;
+    }
+ 
+    cache_set_t *set = get_set(cache, addr);
+    int way_idx = line - set->lines;
+    set->next_lru = lru(cache->A, way_idx, &set->lru_matrix);
+
+    return true;
 }
 
 /*  STUDENT TO-DO:
@@ -187,8 +240,39 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
     evicted_line->data = (byte_t *) calloc(cache->B, sizeof(byte_t));
     /* your implementation */
 
+    cache_line_t *line = select_line(cache, addr);
+    
+    int b = _log(cache->B);
+    int s_bits = _log(cache->C / (cache->A * cache->B));
+    int s_idx = (addr >> b) & ((1 << s_bits) - 1);
+    uword_t tag = (addr >> (b + s_bits));
+    cache_set_t *set = &cache->sets[s_idx];
+    
+    // save evicted line info
+    evicted_line->valid = line->valid;
+    evicted_line->dirty = line->dirty;
+    evicted_line->block_addr = (line->tag << (b + s_bits)) | (s_idx << b);
+    evicted_line->data = line->data;
+    
+    // check if line being evcied is clean or dirty
+    if (evicted_line->valid){
+        if (evicted_line->dirty == 1) {
+            dirty_eviction_count++;
+        } else {
+            clean_eviction_count++;
+        }
+    }
+
+    int way_idx = line - set->lines;
+
+    line->tag = tag;
+    line->valid = true;
+    line->dirty = (operation == WRITE);
+    set->next_lru = lru(cache->A, way_idx, &set->lru_matrix);
+    line->data = incoming_data;
     return evicted_line;
 }
+
 
 /* STUDENT TO-DO:
  * Get 8 bytes from the cache and write it to dest.
@@ -196,6 +280,9 @@ evicted_line_t *handle_miss(cache_t *cache, uword_t addr, operation_t operation,
  */
 void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
     /* Your implementation */
+    cache_line_t *line = get_line(cache, addr);
+    int offset = addr & (cache->B - 1);
+    memcpy(dest, line->data + offset, 8);
 }
 
 /* STUDENT TO-DO:
@@ -204,7 +291,11 @@ void get_word_cache(cache_t *cache, uword_t addr, word_t *dest) {
  */
 void set_word_cache(cache_t *cache, uword_t addr, word_t val) {
     /* Your implementation */
+    cache_line_t *line = get_line(cache, addr);
+    int offset = addr & (cache->B - 1);
+    memcpy(line->data + offset, &val, 8);
 }
+
 
 /*
  * Access data at memory address addr
