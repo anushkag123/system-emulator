@@ -231,6 +231,8 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
             break;
 
         case PASS_A_OP:
+        case CBZ_OP:
+        case CBNZ_OP:
             *val_e = alu_vala;
             break;
 
@@ -247,7 +249,7 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
             break;
             
         case CSNEG_OP:
-            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : -alu_valb;
+            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : (0 - alu_valb);
             break;
         
         default:
@@ -262,7 +264,13 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
         *nzcv_dst = nzcv;
     }
 
-    *cond_val = cond_holds(cond, nzcv);
+    if (ALUop == CBZ_OP) {
+        *cond_val = (alu_vala == 0);
+    } else if (ALUop == CBNZ_OP) {
+        *cond_val = (alu_vala != 0);
+    } else {
+        *cond_val = cond_holds(cond, nzcv);
+    }
     return;
 }
 

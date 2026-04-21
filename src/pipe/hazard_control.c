@@ -64,7 +64,6 @@ void pipe_control_stage(proc_stage_t stage, bool bubble, bool stall) {
 bool check_ret_hazard(opcode_t D_opcode) {
     // Student TODO
     if(D_opcode == OP_RET) {
-        // pipe_control_stage(S_FETCH, 1, 0);
         return true;
     }
     return false;
@@ -73,20 +72,40 @@ bool check_ret_hazard(opcode_t D_opcode) {
 #ifdef EC
 bool check_br_hazard(opcode_t D_opcode) {
     // Student TODO
+    if (D_opcode == OP_BR || D_opcode == OP_BLR) {
+        return true;
+    }
     return false;
 }
 
 bool check_cb_hazard(opcode_t D_opcode, uint64_t D_val_a) {
     // Student TODO
+    if (D_opcode == OP_CBZ && D_val_a != 0){
+        return true;
+    } else if (D_opcode == OP_CBNZ && D_val_a == 0) {
+        return true;
+    }
     return false;
+}
+
+bool check_flag_hazard(opcode_t D_opcode, opcode_t X_opcode) {
+    // Does the instruction in DECODE need flags?
+    bool D_uses_flags = (D_opcode == OP_B_COND || D_opcode == OP_CSEL || 
+                         D_opcode == OP_CSINC || D_opcode == OP_CSINV || 
+                         D_opcode == OP_CSNEG);
+
+    // Is the instruction in EXECUTE currently calculating new flags?
+    bool X_sets_flags = (X_opcode == OP_ADDS_RR || X_opcode == OP_SUBS_RR || 
+                         X_opcode == OP_ANDS_RR || X_opcode == OP_CMP_RR || 
+                         X_opcode == OP_CMN_RR  || X_opcode == OP_TST_RR);
+
+    return D_uses_flags && X_sets_flags;
 }
 #endif
 
 bool check_mispred_branch_hazard(opcode_t X_opcode, bool X_condval) {
     // Student TODO
     if(X_opcode == OP_B_COND && !X_condval) {
-        // pipe_control_stage(S_FETCH, 1, 0);
-        // pipe_control_stage(S_DECODE, 1, 0);
         return true;
     }
     return false;
@@ -101,29 +120,11 @@ bool check_load_use_hazard(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
         }
     }
     return false;
-/*
-    if (X_opcode == OP_LDUR && X_dst != 32) {
-        if (D_opcode == OP_STUR) {
-            // Only stall if base address register depends on load
-            if (D_src1 == X_dst)
-                return true;
-        } else if (!(D_opcode == OP_B || D_opcode == OP_BL || D_opcode == OP_B_COND 
-                    || D_opcode == OP_NOP || D_opcode == OP_HLT)) {
-            if (D_src1 == X_dst || D_src2 == X_dst)
-                return true;
-        }
-    }
-    return false;*/
 }
 
 bool error(stat_t status) {
     // Student TODO
     return (status != STAT_AOK && status != STAT_BUB);
-    //return (status == STAT_ADR || status == STAT_INS);
-
-    /*if(status == STAT_ADR || status == STAT_INS || status == STAT_HLT) 
-        return true;
-    return false;*/
 }
 
 comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
@@ -133,15 +134,12 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
     // This will need to be updated in week 2, good enough for week 1
 #ifdef PIPE
     // Student TODO
-    
     pipe_control_stage(S_FETCH, 0, 0);
     pipe_control_stage(S_DECODE, 0, 0);
     pipe_control_stage(S_EXECUTE, 0, 0);
     pipe_control_stage(S_MEMORY, 0, 0);
     pipe_control_stage(S_WBACK, 0, 0);
     deassert_flags = false;
-
-    
 
     bool m_err = error(M_in->status);
     bool w_err = error(W_in->status);
@@ -157,13 +155,11 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
         pipe_control_stage(S_DECODE, 0, 1);
         pipe_control_stage(S_EXECUTE, 0, 1);
         pipe_control_stage(S_MEMORY, 0, 1);
-        //pipe_control_stage(S_WBACK, 0, 0);
         deassert_flags = true; 
     } else if (m_err) {
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 0, 1);
         pipe_control_stage(S_EXECUTE, 0, 1);
-        //pipe_control_stage(S_MEMORY, 0, 0)
         deassert_flags = true;
     } else if (check_load_use_hazard(D_opcode, D_src1, D_src2, X_opcode, X_dst)) {
         pipe_control_stage(S_FETCH, 0, 1);
@@ -173,7 +169,9 @@ comb_logic_t handle_hazards(opcode_t D_opcode, uint8_t D_src1, uint8_t D_src2,
         pipe_control_stage(S_FETCH, 1, 0);
         pipe_control_stage(S_DECODE, 1, 0);
         pipe_control_stage(S_EXECUTE, 1, 0);
-    } else if (check_ret_hazard(D_opcode)) {
+    } else if (check_cb_hazard(D_opcode, D_val_a)) {
+        pipe_control_stage(S_DECODE, 1, 0);
+    } else if (check_ret_hazard(D_opcode) || check_br_hazard(D_opcode)) {
         pipe_control_stage(S_FETCH, 0, 1);
         pipe_control_stage(S_DECODE, 1, 0);
     } 

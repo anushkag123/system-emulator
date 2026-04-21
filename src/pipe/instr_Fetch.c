@@ -40,13 +40,29 @@ select_PC(uint64_t pred_PC,                  // The predicted PC
     // Modify starting here.
     
     // fix mispredicted branch
-    if ((M_opcode == OP_B_COND || M_opcode == OP_CBZ || M_opcode == OP_CBNZ) && !M_cond_val) {
+    if (M_opcode == OP_B_COND && !M_cond_val) {
+        *current_PC = seq_succ;
+        return;
+    }
+
+    if (M_opcode == OP_CBZ && val_a != 0) {
+        *current_PC = seq_succ;
+        return;
+    }
+
+    if (M_opcode == OP_CBNZ && val_a == 0) {
         *current_PC = seq_succ;
         return;
     }
 
     // ret
     if (D_opcode == OP_RET) {
+        *current_PC = val_a;
+        return;
+    }
+
+    // indirect branch correction
+    if (D_opcode == OP_BR || D_opcode == OP_BLR) {
         *current_PC = val_a;
         return;
     }
@@ -78,7 +94,7 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
     
     //uncond branch
     int64_t offset;
-    if(op == OP_B || op == OP_BL || op == OP_BR || op == OP_BLR) {
+    if(op == OP_B || op == OP_BL) {
         offset = bitfield_s64(insnbits, 0, 26);
         *predicted_PC = current_PC + (offset << 2);
         return;
