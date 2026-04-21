@@ -233,6 +233,22 @@ comb_logic_t alu(uint64_t alu_vala, uint64_t alu_valb, uint8_t alu_valhw,
         case PASS_A_OP:
             *val_e = alu_vala;
             break;
+
+        case CSEL_OP:
+            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : alu_valb;
+            break;
+
+        case CSINV_OP:
+            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : ~alu_valb;
+            break;
+
+        case CSINC_OP:
+            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : alu_valb + 1;
+            break;
+            
+        case CSNEG_OP:
+            *val_e = (cond_holds(cond, nzcv)) ? alu_vala : -alu_valb;
+            break;
         
         default:
             break;

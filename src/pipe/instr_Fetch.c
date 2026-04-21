@@ -40,7 +40,7 @@ select_PC(uint64_t pred_PC,                  // The predicted PC
     // Modify starting here.
     
     // fix mispredicted branch
-    if (M_opcode == OP_B_COND && !M_cond_val) {
+    if ((M_opcode == OP_B_COND || M_opcode == OP_CBZ || M_opcode == OP_CBNZ) && !M_cond_val) {
         *current_PC = seq_succ;
         return;
     }
@@ -78,14 +78,14 @@ static comb_logic_t predict_PC(uint64_t current_PC, uint32_t insnbits,
     
     //uncond branch
     int64_t offset;
-    if(op == OP_B || op == OP_BL) {
+    if(op == OP_B || op == OP_BL || op == OP_BR || op == OP_BLR) {
         offset = bitfield_s64(insnbits, 0, 26);
         *predicted_PC = current_PC + (offset << 2);
         return;
     }
     
     // cond branch
-    if (op == OP_B_COND){
+    if (op == OP_B_COND || op == OP_CBZ || op == OP_CBNZ){
         offset = bitfield_s64(insnbits, 5, 19);
         *predicted_PC = current_PC + (offset << 2);
         return;
@@ -170,8 +170,6 @@ static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
  * select_pc, predict_pc, and imem.
  */
 comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
-
-    
     bool imem_err = 0;
     uint64_t current_PC = 0;
 
@@ -193,14 +191,7 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
         out->format = ftable[out->op];
         imem_err = false;
     } else {
-        // Student TODO
-        //out->multipurpose_val.correction_PC = current_PC;
-        
-        /*if(F_in->status == STAT_INS || F_in->status == STAT_ADR) {
-            out->status = F_in->status;
-            return;
-        }*/
-        
+        // Student TODO     
         imem(current_PC, &out->insnbits, &imem_err);
 
         out->op = itable[bitfield_u32(out->insnbits, 21, 11)]; 
@@ -220,13 +211,10 @@ comb_logic_t fetch_instr(f_instr_impl_t *in, d_instr_impl_t *out) {
 
     if (imem_err || out->op == OP_ERROR) {
         in->status = STAT_INS;
-        //F_in->status = in->status;
     } else if (out->op == OP_HLT) {
         in->status = STAT_HLT;
-        //F_in->status = in->status;
     } else {
         in->status = STAT_AOK;
-        //F_in->status = in->status;
     }
     F_in->status = in->status;
     out->status = in->status;

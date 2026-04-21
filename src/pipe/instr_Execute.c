@@ -57,7 +57,7 @@ comb_logic_t execute_instr(x_instr_impl_t *in, m_instr_impl_t *out) {
         out->val_ex = (in->val_a & mask) | (in->val_imm << in->val_hw);
         out->cond_holds = true;
     
-    } else if (in->op == OP_BL){
+    } else if (in->op == OP_BL || in->op == OP_BLR){
         out->val_ex = in->multipurpose_val.seq_succ_PC;
         out->cond_holds = true;
     

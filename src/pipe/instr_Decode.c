@@ -41,7 +41,8 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
     X_sigs->valb_sel = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_CMP_RR || 
                         op == OP_CMN_RR || op == OP_ORR_RR || op == OP_EOR_RR || 
                         op == OP_ANDS_RR || op == OP_TST_RR || op == OP_LSL_RR || 
-                        op == OP_LSR_RR || op == OP_RET || op == OP_MVN); 
+                        op == OP_LSR_RR || op == OP_RET || op == OP_MVN ||
+                        op == OP_CSEL|| op == OP_CSINC || op == OP_CSNEG || op == OP_CSINV); 
     // check if setting nzcv flags                   
     //X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR);
     X_sigs->set_flags = (op == OP_ADDS_RR || op == OP_SUBS_RR || op == OP_ANDS_RR ||
@@ -52,7 +53,7 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
     M_sigs->dmem_write = (op == OP_STUR);
 
     // check if writing to x30
-    W_sigs->dst_sel = (op == OP_BL);
+    W_sigs->dst_sel = (op == OP_BL || op == OP_BLR);
     // check if write val comes from mem
     W_sigs->wval_sel = (op == OP_LDUR);
     // enable write for any instr that modifies a reg
@@ -61,7 +62,9 @@ static comb_logic_t generate_DXMW_control(opcode_t op, d_ctl_sigs_t *D_sigs,
                         op == OP_SUB_RI || op == OP_SUBS_RR || op == OP_ORR_RR || 
                         op == OP_EOR_RR || op == OP_ANDS_RR || op == OP_LSL_RI || 
                         op == OP_LSR_RI || op == OP_LSL_RR || op == OP_LSR_RR || 
-                        op == OP_ASR || op == OP_BL || op == OP_MVN);
+                        op == OP_ASR || op == OP_BL || op == OP_MVN ||
+                        op == OP_CSEL|| op == OP_CSINC || op == OP_CSNEG || op == OP_CSINV ||
+                        op == OP_BLR);
     return;
 }
 
@@ -90,9 +93,6 @@ static comb_logic_t extract_immval(uint32_t insnbits, opcode_t op,
     case OP_ADRP:
         int64_t immhi = bitfield_s64(insnbits, 5, 19);
         uint64_t immlo = bitfield_u32(insnbits, 29, 2);
-        // int64_t combined = (immhi << 2) | immlo;
-        // combined = (combined << 43) >> 43;
-        // *imm = combined << 12;
         *imm = ((immhi << 2) | (int64_t)immlo) << 12;
         break;
     // RI (arithmetic)
@@ -101,7 +101,6 @@ static comb_logic_t extract_immval(uint32_t insnbits, opcode_t op,
         *imm = bitfield_u32(insnbits, 10, 12);
         break;
     // RI (logical)
-    
     case OP_ASR:
     case OP_LSR_RI:
         *imm = bitfield_u32(insnbits, 16, 6);
@@ -173,7 +172,18 @@ static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
         case OP_ASR:
             *ALU_op = ASR_OP;
             break;
-        
+        case OP_CSEL:
+            *ALU_op = CSEL_OP;
+            break;
+        case OP_CSINV:
+            *ALU_op = CSINV_OP;
+            break;
+        case OP_CSINC:
+            *ALU_op = CSINC_OP;
+            break;
+        case OP_CSNEG:
+            *ALU_op = CSNEG_OP;
+            break;
         default:
             *ALU_op = PASS_A_OP;
     }
@@ -342,6 +352,18 @@ comb_logic_t format_s(uint32_t insnbits, opcode_t op, uint8_t *src1,
 comb_logic_t format_ec(uint32_t insnbits, opcode_t op, uint8_t *src1,
                        uint8_t *src2, uint8_t *dst) {
     // Student TODO
+    if(op == OP_CSEL || op == OP_CSINC || op == OP_CSNEG || op == OP_CSINV) {
+        *dst = bitfield_u32(insnbits, 0, 5);
+        *src1 = bitfield_u32(insnbits, 5, 5);
+        *src2 = bitfield_u32(insnbits, 16, 5);
+        return;
+    } else if (op == OP_BR || op == OP_BLR) {
+        *src1 = bitfield_u32(insnbits, 5, 5);
+        if (op == OP_BLR) *dst = 30;
+        return;
+    } else if (op == OP_CBZ || op == OP_CBNZ) {
+        *src1 = bitfield_u32(insnbits, 0, 5);
+    }
     return;
 }
 #endif
@@ -396,6 +418,11 @@ comb_logic_t decode_instr(d_instr_impl_t *in, x_instr_impl_t *out) {
     extract_immval(in->insnbits, out->op, &out->val_imm);
     
     out->val_hw = bitfield_u32(in->insnbits, 21, 2) * 16; // shift val
-    out->cond = bitfield_u32(in->insnbits, 0, 4); //cond for b cond
+    if(out->op == OP_B_COND) {
+        out->cond = bitfield_u32(in->insnbits, 0, 4); //cond for b cond
+    } else {
+        out->cond = bitfield_u32(in->insnbits, 12, 4); //cond for cs
+    }
+    
     return;
 }
