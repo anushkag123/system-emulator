@@ -8,26 +8,37 @@
 // x0: address of long array[32]
 // x1: size of array (32)
 abs_sum:
-    // Modify below here
-    movz    x2, #0              // Running sum.
-    movz    x5, #1
-    cmp     x1, xzr             // Check if there are elements left in array to sum.
-    b.eq    .done              // If not, we are done.
+    movz    x2, #0              // Total sum
+    movz    x5, #2              // Decrement by 2
+    movz    x9, #1
+    
+    cmp     x1, xzr             // Initial check
+    b.eq    .done
 
 .loop:
-    ldur    x3, [x0, #0]        // Load element from memory.
-    add     x0, x0, #8
-
-    asr     x4, x3, #63
-    eor     x3, x3, x4
-    subs     x3, x3, x4
+    /* Load */
+    ldur    x3, [x0, #0]        // Element A
+    ldur    x10, [x0, #8]       // Element B
+    add     x0, x0, #16
     
-    adds     x2, x2, x3
+    /* Absolute value for x3 */
+    asr     x4, x3, #63         // Create sign mask
+    eor     x3, x3, x4          // Invert bits if negative
+    subs    x3, x3, x4
+    
+    /* Absolute value for x10 */
+    asr     x11, x10, #63       // Create sign mask
+    eor     x10, x10, x11       // Invert bits if negative
+    subs    x10, x10, x11
 
-    subs    x1, x1, x5
-    b.ne    .loop               // Continue loop.
+    /* Accumulate both */
+    adds    x2, x2, x3          //Update sum
+    adds    x2, x2, x10
+    
+    subs    x1, x1, x5          // Decrement counter
+    b.gt    .loop
 
 .done:
-    adds    x0, x2, xzr         // Move sum into x0.
+    adds    x0, x2, xzr         // Move sum into x0
     ret
 .size   abs_sum, .-abs_sum
