@@ -10,21 +10,24 @@
 abs_sum:
     // Modify below here
     movz    x2, #0              // Running sum.
-    subs    x1, x1, xzr         // Check if there are elements left in array to sum.
-    b.ne    .loop               // If not, we are done.
-    b       .done
+    movz    x5, #1
+    cmp     x1, xzr             // Check if there are elements left in array to sum.
+    b.eq    .done              // If not, we are done.
+
 .loop:
     ldur    x3, [x0, #0]        // Load element from memory.
-    add     x0, x0, #8          // Increment pointer.
+    add     x0, x0, #8
+
     asr     x4, x3, #63
     eor     x3, x3, x4
-    sub     x3, x3, x4
+    subs     x3, x3, x4
     
-    add     x2, x2, x3
-    subs    x1, x1, #1
+    adds     x2, x2, x3
+
+    subs    x1, x1, x5
     b.ne    .loop               // Continue loop.
 
 .done:
-    add    x0, xzr, x2         // Move sum into x0.
+    adds    x0, x2, xzr         // Move sum into x0.
     ret
 .size   abs_sum, .-abs_sum
