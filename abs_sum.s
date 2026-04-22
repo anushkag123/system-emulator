@@ -15,6 +15,21 @@ abs_sum:
     cmp     x1, xzr             // Initial check
     b.eq    .done
 
+    /* Odd case */
+    ands    xzr, x1, x9
+    b.eq    .loop
+
+    ldur    x3, [x0, #0]
+    add     x0, x0, #8
+    asr     x4, x3, #63
+    eor     x3, x3, x4
+    subs     x3, x3, x4
+    adds     x2, x2, x3
+    subs    x1, x1, x9
+
+    cmp     x1, xzr
+    b.eq    .done
+
 .loop:
     /* Load */
     ldur    x3, [x0, #0]        // Element A
