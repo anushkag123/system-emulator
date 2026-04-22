@@ -40,29 +40,13 @@ select_PC(uint64_t pred_PC,                  // The predicted PC
     // Modify starting here.
     
     // fix mispredicted branch
-    if (M_opcode == OP_B_COND && !M_cond_val) {
-        *current_PC = seq_succ;
-        return;
-    }
-
-    if (M_opcode == OP_CBZ && val_a != 0) {
-        *current_PC = seq_succ;
-        return;
-    }
-
-    if (M_opcode == OP_CBNZ && val_a == 0) {
+    if ((M_opcode == OP_B_COND || M_opcode == OP_CBZ || M_opcode == OP_CBNZ) && !M_cond_val) {
         *current_PC = seq_succ;
         return;
     }
 
     // ret
-    if (D_opcode == OP_RET) {
-        *current_PC = val_a;
-        return;
-    }
-
-    // indirect branch correction
-    if (D_opcode == OP_BR || D_opcode == OP_BLR) {
+    if (D_opcode == OP_RET || D_opcode == OP_BR || D_opcode == OP_BLR) {
         *current_PC = val_a;
         return;
     }
@@ -167,6 +151,23 @@ static void fix_instr_aliases(uint32_t insnbits, opcode_t *op) {
             *op = OP_CMN_RR;
         }
         return;
+    }
+
+    if (*op == OP_CSEL) {
+        if (bitfield_u32(insnbits, 10, 1) == 1) 
+            *op = OP_CSINC;
+        return;
+    }
+
+    if (*op == OP_CSNEG) {
+        if (bitfield_u32(insnbits, 10, 1) == 0) 
+            *op = OP_CSINV;
+        return;
+    }
+
+    if(*op == OP_CBNZ) {
+        if(bitfield_u32(insnbits, 24, 1) == 0)
+            *op = OP_CBZ;
     }
 
     return;

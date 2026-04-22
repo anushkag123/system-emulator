@@ -184,6 +184,12 @@ static comb_logic_t decide_alu_op(opcode_t op, alu_op_t *ALU_op) {
         case OP_CSNEG:
             *ALU_op = CSNEG_OP;
             break;
+        case OP_CBZ:
+            *ALU_op = CBZ_OP;
+            break;
+        case OP_CBNZ:
+            *ALU_op = CBNZ_OP;
+            break;
         default:
             *ALU_op = PASS_A_OP;
     }
