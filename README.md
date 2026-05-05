@@ -1,8 +1,3 @@
-# Welcome to the CS 429 System Emulator Lab!
-
-This is a brief overview of the repository,
-which contains information about the codebase and how to run it.
-
 # Running the emulator
 
 To get started, you can compile the project just by running `make` in the terminal.
